@@ -1,7 +1,7 @@
-import 'package:ecommerce_app/screens/login_screen.dart';
-import 'package:ecommerce_app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:ecommerce_app/screens/login_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // 1. ADD THIS IMPORT
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -11,81 +11,97 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
-
   final _formKey = GlobalKey<FormState>();
-
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance; // 2. ADD THIS
   bool _isLoading = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _signUp() async {
-    if (_formKey.currentState!.validate()) {
-      if (_passwordController.text != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Passwords do not match')),
-        );
-        return;
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // 3. This is the same: create the user
+      final UserCredential userCredential =
+      await _auth.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      // 4. --- THIS IS THE NEW PART ---
+      // After creating the user, save their info to Firestore
+      if (userCredential.user != null) {
+        // 5. Create a document in a 'users' collection
+        //    We use the user's unique UID as the document ID
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'email': _emailController.text.trim(),
+          'role': 'user', // 6. Set the default role to 'user'
+          'createdAt': FieldValue.serverTimestamp(), // For our records
+        });
       }
 
-      setState(() {
-        _isLoading = true;
-      });
-
-      try {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
-
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        }
-      } on FirebaseAuthException catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'An error occurred')),
-        );
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+      // User is automatically signed in after successful signup
+      // Navigate back to AuthWrapper which will show HomeScreen
+      Navigator.of(context).pop();
+    } on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'weak-password':
+          message = 'The password provided is too weak.';
+          break;
+        case 'email-already-in-use':
+          message = 'An account already exists for that email.';
+          break;
+        case 'invalid-email':
+          message = 'The email address is not valid.';
+          break;
+        default:
+          message = 'An error occurred. Please try again.';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An unexpected error occurred.')),
+      );
+    } finally {
+      if(mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('SignUp'),
-      ),
-
+      appBar: AppBar(title: const Text('Sign Up')),
       body: SingleChildScrollView(
         child: Padding(
-
           padding: const EdgeInsets.all(16.0),
-
           child: Form(
             key: _formKey,
-
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
-
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -93,7 +109,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.emailAddress,
-
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your email';
@@ -104,9 +119,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 16),
-
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
@@ -124,47 +137,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
-
-                const SizedBox(height: 16),
-
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm Password',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please confirm your password';
-                    }
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
-                ),
-
                 const SizedBox(height: 20),
-
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size.fromHeight(50),
                   ),
                   onPressed: _isLoading ? null : _signUp,
                   child: _isLoading
-                      ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  )
+                      ? const CircularProgressIndicator()
                       : const Text('Sign Up'),
                 ),
-
                 const SizedBox(height: 10),
-
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pushReplacement(
@@ -173,9 +156,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     );
                   },
-                  child: const Text(("Already have an account? Login"),
-                  ),
-                )
+                  child: const Text("Already have an account? Login"),
+                ),
               ],
             ),
           ),

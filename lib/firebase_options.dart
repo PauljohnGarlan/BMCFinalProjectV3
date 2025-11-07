@@ -23,15 +23,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
         return windows;
       case TargetPlatform.linux:
@@ -71,4 +65,23 @@ class DefaultFirebaseOptions {
     authDomain: 'my-ecommerce-app-091405.firebaseapp.com',
     storageBucket: 'my-ecommerce-app-091405.firebasestorage.app',
   );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyCVedl-2DWVtGRVYOhQ6sNroI5yfqYXrng',
+    appId: '1:518287408089:ios:9750991a126d06a4c237c8',
+    messagingSenderId: '518287408089',
+    projectId: 'my-ecommerce-app-091405',
+    storageBucket: 'my-ecommerce-app-091405.firebasestorage.app',
+    iosBundleId: 'com.example.ecommerceApp',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCVedl-2DWVtGRVYOhQ6sNroI5yfqYXrng',
+    appId: '1:518287408089:ios:9750991a126d06a4c237c8',
+    messagingSenderId: '518287408089',
+    projectId: 'my-ecommerce-app-091405',
+    storageBucket: 'my-ecommerce-app-091405.firebasestorage.app',
+    iosBundleId: 'com.example.ecommerceApp',
+  );
+
 }
