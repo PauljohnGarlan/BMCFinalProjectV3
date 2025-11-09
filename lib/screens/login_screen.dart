@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:ecommerce_app/screens/signup_screen.dart';
+import 'package:ecommerce_app/screens/signup_screen.dart'; // Changed to relative import
+import 'package:firebase_auth/firebase_auth.dart'; // 1. Add Firebase Auth import
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,7 +13,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  // 2. Add a loading state variable
   bool _isLoading = false;
+
+  // 3. Get an instance of FirebaseAuth
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void dispose() {
@@ -22,53 +27,73 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // 4. The Login Function
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+    // 1. Check if the form is valid
+    if (!_formKey.currentState!.validate()) {
+      return; // If not valid, stop here
+    }
 
-    setState(() => _isLoading = true);
+    // 2. Set loading to true
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      // 3. This is the Firebase command to sign in
+      await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // User is automatically signed in after successful login
-      // AuthWrapper will handle navigation to HomeScreen
-      // No need to navigate manually as StreamBuilder will update
+
+      // 4. If login is successful, the AuthWrapper's stream
+      //    will auto-navigate to HomeScreen. We don't need to do it here.
+
     } on FirebaseAuthException catch (e) {
-      String message;
-      switch (e.code) {
-        case 'user-not-found':
-          message = 'No user found for that email.';
-          break;
-        case 'wrong-password':
-          message = 'Wrong password provided for that user.';
-          break;
-        case 'invalid-email':
-          message = 'The email address is not valid.';
-          break;
-        case 'user-disabled':
-          message = 'This user has been disabled.';
-          break;
-        default:
-          message = 'An error occurred. Please try again.';
+      // 5. This 'catch' block handles Firebase-specific errors
+      String message = 'An error occurred';
+      if (e.code == 'user-not-found') {
+        message = 'No user found for that email.';
+      } else if (e.code == 'wrong-password') {
+        message = 'Wrong password provided.';
+      } else if (e.code == 'invalid-email') {
+        message = 'Invalid email address.';
+      } else if (e.code == 'user-disabled') {
+        message = 'This user has been disabled.';
       }
+
+      // 6. Show the error message in a SnackBar
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.pinkAccent,
+        ),
       );
     } catch (e) {
+      // 7. Catch any other general errors
+      print(e);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An unexpected error occurred.')),
+        const SnackBar(
+          content: Text('An unexpected error occurred'),
+          backgroundColor: Colors.pinkAccent,
+        ),
       );
-    } finally {
-      setState(() => _isLoading = false);
+    }
+
+    // 8. ALWAYS set loading to false at the end
+    if (mounted) { // Check if the widget is still on screen
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
+      appBar: AppBar(
+        title: const Text('𝐋𝐨𝐠𝐢𝐧'),
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -78,6 +103,8 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
+
+                // Email Text Field
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -95,7 +122,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
+
                 const SizedBox(height: 16),
+
+                // Password Text Field
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
@@ -113,20 +143,34 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
+
                 const SizedBox(height: 20),
+
+                // Login Button - UPDATED
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size.fromHeight(50),
                   ),
+                  // 1. Call our new _login function
                   onPressed: _isLoading ? null : _login,
+                  // 2. Show a spinner OR text based on _isLoading
                   child: _isLoading
-                      ? const CircularProgressIndicator()
+                      ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.lightBlue),
+                    ),
+                  )
                       : const Text('Login'),
                 ),
+
                 const SizedBox(height: 10),
+
+                // Sign Up Button - FIXED NAVIGATION
                 TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pushReplacement(
+                  onPressed: _isLoading ? null : () {
+                    Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => const SignUpScreen(),
                       ),

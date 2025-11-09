@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:ecommerce_app/screens/login_screen.dart';
+import 'package:ecommerce_app/screens/login_screen.dart'; // Changed to relative import
+import 'package:firebase_auth/firebase_auth.dart'; // 1. Add Firebase Auth import
 import 'package:cloud_firestore/cloud_firestore.dart'; // 1. ADD THIS IMPORT
 
 class SignUpScreen extends StatefulWidget {
@@ -14,9 +14,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+
+  // 2. Add loading state and auth instance
+  bool _isLoading = false;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance; // 2. ADD THIS
-  bool _isLoading = false;
+
 
   @override
   void dispose() {
@@ -25,14 +29,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
+
+  // 3. The Sign Up Function
   Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
+
     setState(() {
       _isLoading = true;
     });
+
 
     try {
       // 3. This is the same: create the user
@@ -41,6 +49,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
 
       // 4. --- THIS IS THE NEW PART ---
       // After creating the user, save their info to Firestore
@@ -53,32 +62,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
           'createdAt': FieldValue.serverTimestamp(), // For our records
         });
       }
+      // 7. The AuthWrapper will handle navigation automatically
 
-      // User is automatically signed in after successful signup
-      // Navigate back to AuthWrapper which will show HomeScreen
-      Navigator.of(context).pop();
+
+      // 2. AuthWrapper will auto-navigate to HomeScreen.
+
     } on FirebaseAuthException catch (e) {
-      String message;
-      switch (e.code) {
-        case 'weak-password':
-          message = 'The password provided is too weak.';
-          break;
-        case 'email-already-in-use':
-          message = 'An account already exists for that email.';
-          break;
-        case 'invalid-email':
-          message = 'The email address is not valid.';
-          break;
-        default:
-          message = 'An error occurred. Please try again.';
+      // 3. Handle specific sign-up errors
+      String message = 'An error occurred';
+      if (e.code == 'weak-password') {
+        message = 'The password provided is too weak.';
+      } else if (e.code == 'email-already-in-use') {
+        message = 'An account already exists for that email.';
       }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.pinkAccent,
+        ),
       );
     } catch (e) {
+      print(e);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An unexpected error occurred.')),
+        const SnackBar(
+          content: Text('An unexpected error occurred'),
+          backgroundColor: Colors.pinkAccent,
+        ),
       );
+
+
     } finally {
       if(mounted) {
         setState(() {
@@ -88,11 +101,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign Up')),
+      appBar: AppBar(
+        title: const Text('𝐒𝐢𝐠𝐧 𝐔𝐩'),
+      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -102,6 +116,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const SizedBox(height: 20),
+
+
+                // Email Text Field
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -119,7 +136,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
+
+
                 const SizedBox(height: 16),
+
+
+                // Password Text Field
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
@@ -137,20 +159,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return null;
                   },
                 ),
+
+
                 const SizedBox(height: 20),
+
+
+                // Sign Up Button - UPDATED
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size.fromHeight(50),
                   ),
+                  // 1. Call our new _signUp function
                   onPressed: _isLoading ? null : _signUp,
+                  // 2. Show a spinner OR text
                   child: _isLoading
-                      ? const CircularProgressIndicator()
+                      ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.pink),
+                    ),
+                  )
                       : const Text('Sign Up'),
                 ),
+
                 const SizedBox(height: 10),
+
+                // Login Button - FIXED NAVIGATION
                 TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pushReplacement(
+                  onPressed: _isLoading ? null : () {
+                    Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => const LoginScreen(),
                       ),

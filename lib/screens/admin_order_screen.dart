@@ -14,12 +14,27 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // 2. This is the function that updates the status in Firestore
-  Future<void> _updateOrderStatus(String orderId, String newStatus) async {
+  // 1. MODIFY this function to accept userId
+  Future<void> _updateOrderStatus(String orderId, String newStatus, String userId) async {
     try {
-      // 3. Find the document and update the 'status' field
+      // 3. This part is the same (update the order)
       await _firestore.collection('orders').doc(orderId).update({
         'status': newStatus,
       });
+
+      // 3. --- ADD THIS NEW LOGIC ---
+      //    Create a new notification document
+      await _firestore.collection('notifications').add({
+        'userId': userId, // 4. The user this notification is for
+        'title': 'Order Status Updated',
+        'body': 'Your order ($orderId) has been updated to "$newStatus".',
+        'orderId': orderId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'isRead': false, // 5. Mark it as unread
+      });
+      // --- END OF NEW LOGIC ---
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order status updated!')),
       );
@@ -30,34 +45,36 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
     }
   }
 
-  // --- THIS IS THE FIXED FUNCTION ---
-  // It now uses 'dialogContext' to pop, fixing the crash
-  void _showStatusDialog(String orderId, String currentStatus) {
+  // 4. This function shows the update dialog
+  // 1. MODIFY this function to accept userId
+  void _showStatusDialog(String orderId, String currentStatus, String userId) {
     showDialog(
-      context: context, // This is the main screen's context
-      // 1. RENAME this variable to 'dialogContext'
+      context: context,
       builder: (dialogContext) {
+        // 5. A list of all possible statuses
         const statuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
 
         return AlertDialog(
           title: const Text('Update Order Status'),
           content: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.min, // Make the dialog small
             children: statuses.map((status) {
+              // 6. Create a button for each status
               return ListTile(
                 title: Text(status),
+                // 7. Show a checkmark next to the current status
                 trailing: currentStatus == status ? const Icon(Icons.check) : null,
                 onTap: () {
-                  _updateOrderStatus(orderId, status);
-                  // 2. FIX: Use 'dialogContext' to pop
-                  Navigator.of(dialogContext).pop();
+                  // 8. When tapped:
+                  // 2. PASS userId to our update function
+                  _updateOrderStatus(orderId, status, userId); // Call update
+                  Navigator.of(dialogContext).pop(); // Close the dialog
                 },
               );
             }).toList(),
           ),
           actions: [
             TextButton(
-              // 3. FIX: Use 'dialogContext' to pop here too
               onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Close'),
             )
@@ -66,7 +83,6 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
       },
     );
   }
-  // --- END OF FIX ---
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +109,7 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(child: Text('No orders found.'));
           }
+
           // 4. We have the orders!
           final orders = snapshot.data!.docs;
 
@@ -100,20 +117,18 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
             itemCount: orders.length,
             itemBuilder: (context, index) {
               final order = orders[index];
-              // --- NULL-SAFE DATA HANDLING ---
-              // This prevents crashes if data is missing
               final orderData = order.data() as Map<String, dynamic>;
 
-              final Timestamp? timestamp = orderData['createdAt'];
-              final String formattedDate = timestamp != null
-                  ? DateFormat('MM/dd/yyyy hh:mm a').format(timestamp.toDate())
-                  : 'No date';
+              // 5. Format the date (same as OrderCard)
+              final Timestamp timestamp = orderData['createdAt'];
+              final String formattedDate = DateFormat('MM/dd/yyyy hh:mm a')
+                  .format(timestamp.toDate());
 
-              final String status = orderData['status'] ?? 'Unknown';
-              final double totalPrice = (orderData['totalPrice'] ?? 0.0) as double;
-              final String formattedTotal = '₱${totalPrice.toStringAsFixed(2)}';
+              // 6. Get the current status
+              final String status = orderData['status'];
+
+              // 3. PASS userId from the order data to our dialog
               final String userId = orderData['userId'] ?? 'Unknown User';
-              // --- END OF NULL-SAFE DATA HANDLING ---
 
               // 7. Build a Card for each order
               return Card(
@@ -124,7 +139,7 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   subtitle: Text(
-                      'User: ${orderData['userId']}\n'
+                      'User: $userId\n'
                           'Total: ₱${(orderData['totalPrice']).toStringAsFixed(2)} | Date: $formattedDate'
                   ),
                   isThreeLine: true,
@@ -144,7 +159,8 @@ class _AdminOrderScreenState extends State<AdminOrderScreen> {
 
                   // 9. On tap, show our update dialog
                   onTap: () {
-                    _showStatusDialog(order.id, status);
+                    // 3. PASS userId from the order data to our dialog
+                    _showStatusDialog(order.id, status, userId);
                   },
                 ),
               );
